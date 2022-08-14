@@ -1,0 +1,120 @@
+1. Basic information
+Team Number : 8
+Student ID# of Submitter: 1499743
+Name of Submitter: Michael Farrill
+ID#s and Names for others on the Team
+Allston Mickey - 1529397, Keith Heacock - 1592942
+
+2. Metadata
+
+Our metadata design is a catalog, consisting of a tables table and columns table. As described in
+the PDF, the tables table contains information about tables in the database, specifically, a
+table-id, table-name, and file-name (of type int, varchar(50), and varchar(50) respectively). The
+columns table contains information about the columns of each table in the database. It consists of a
+table-id, column-name, column-type, column-length, and column-position (of type int, varchar(50),
+int, int, and int respectively).  As we were implementing dropAttribute, we included an is-dropped
+(type int) flag to this, but we did not finish implementing it, so this was omitted from the
+submitted code.  The catalog tables are created when createCatalog() is called and persist on disk
+until deleteCatalog() is called. They are system tables, meaning they cannot be modified directly by
+the user.  But they are changed by internal calls, typically when a user table is created or
+deleted. They are also self referential in that the first two table-id’s (and their associated
+tuples) in tables and columns are assigned to tables and columns. 
+
+3. Record Format
+
+We used a variable-length record format (within pages) with a directory and additionally, with null
+flags. The directory is an array of field offsets. This allows direct access to each element (an offset) in
+the array in constant time O(1).
+
+To store a VarChar field we are allocating memory based off the length of the string (if the field
+isn’t marked as null). Then to retrieve the VarChar field we calculate its length based off the
+offset of the next field. A record has the following format: [ numberOfFields | nullFlags |
+field1Offset….fieldNOffset| field1...fieldN].
+Records used by the RM and RBFM use a similar format of:
+[ nullFlags | value1...valueN] where a VarChar’s allocation on the record consists of the length,
+followed by its value.  These are consistent with the provided project 1 solution.
+
+4. Page Format
+
+Our Page format consists of variable length records (identified by record ids), packed free space,
+a slot directory, the number of slots, and the free space offset. Rids contain a page id, indicating
+on what page the record is located, and a slot #, indicating in which index its offset is located in
+the slot directory. Free space is contiguous, making it easier to manage. The slot directory can be
+increased in size, allocating free space and incrementing the slot count. The free space offset
+indicates the beginning of free space, which is necessary for record insertion and other essential
+functions.
+
+5. File Format
+
+Our File Format is a binary file consisting of pages with a size 4096 bytes in length and the file
+extension ‘.t’.  To get the number of pages in a table file we divide the file size by the page
+size.  Again, we used project 1’s provided solution so there is not much to be say that hasn’t
+already been said.
+
+6. Implementation Detail
+
+Updates were handled by a deletion followed by an insertion of the record.  If the inserted record’s
+RID matches, then we’re OK and there is no forwarding to do.  Otherwise we create a forwarding
+address in the slot record entry, treating the offset as the forwarded page number and the length as
+the forwarded slot number (so that the record entry is essentially an RID, if interpreted
+correctly).  To distinguish slots as a normal record entry against a forwarding address, we set the
+most significant bit in the length field.  Since records are guaranteed to fit on one page, the
+record size will never touch the most significant bit, so this is always a valid transformation
+(this also holds if we simply set a cap on any record size that doesn’t reach the MSB).  To reduce
+long chains in forwarding addresses, we utilize at most two pages.  One for the original permanent
+RID, and the other for the new record’s location.  Within updateRecord(), when we delete, we
+invalidate each slot record entry (marked as empty).  If the record is inserted to a new location,
+it will simply take a new RID and we set the forwarding address to that instead.
+Deletions were handled by locating the record on the page and shifting all records between it and
+the free space offset.  The shift size is the record size.  Then we clear shift_size bits after the
+free space offset and move add shift_size to the original free space offset.  This sets the new free
+space offset and guarantees that the memory is cleared.  We also mark the slot record entry that
+held the deleted record’s RID as empty or invalid.  This is done by setting the offset to a negative
+number.  Any valid offset would be positive, regardless of whether it was a forwarding address or an
+<offset, length> pair.  Therefore we reserve a negative offset to represent an empty slot.
+Insertions were changed to check if an empty slot record entry was on the current page before
+allocating a new one.  Reading of records was also changed to read from forwarding addresses.  Given
+an RID, if the slot record entry corresponding to it was forwarding, we would simply recursively
+call readRecord() on the forwarded RID.  Since there is at most one forwarding address for an RID,
+this is guaranteed to hit its base case of reading actual record data.  The RelationManager’s
+methods retrieved the recordDescriptor for each request by looking up the attributes in the catalog
+via passed in tableName.  From there, we just call the RBFM’s corresponding methods.  This also
+applies to scan().
+RBFM’s scan is implemented by reading through each page in a file sequentially, and reading the
+records within a page.  We only read the record if the corresponding slot record entry is not empty
+and is not forwarding (in the case of empty, it would be useless, while in the case of forwarding,
+we would be jumping to other pages, which can potentially be very costly by bringing in a page
+multiple times).  We then retrieve the value of the record, evaluate it with the comparison operator
+on the scanIterator’s internal comparison value, and if it matches, run a projection on the record
+to only get the attributes we care about.  We handle the case of NO_OP by letting it have the
+highest priority, matching every record (equivalent to a “WHERE TRUE” in SQL), regardless of any
+other values in the scanIterator or in the read record.  The next priority is when a value is NULL,
+which matches no record.  The last priority is a standard comparison as expected (e.g. 3 < 4?).
+
+7. Other (optional)
+
+Many test cases were added in the RBF file to deal with scan() and our changes with reading,
+updating, and deletion of records.  addAttribute was a simple change to our existing code.
+Originally, we looped through attributes in a recordDescriptor and added them to the Columns.t
+catalog.  We refactored this out to a function which added a single column to the catalog, and then
+simply called that in a loop.  addAttribute was then just calling this function (with the addition
+of getting the current number of attributes, which is just a read of the table and getting the
+number of columns it has, then adding one to that result).
+dropAttribute we were implementing, but did not get a chance to finish, so it was omitted from our
+submission.  Our idea was to add an is-dropped attribute of type int to each column in the Column.t
+catalog.  On initialization, each attribute has this set to 0 (not dropped).  We then update the
+column catalog attributes (recordDescriptor) to take this into account.  The challenging part was
+passing the appropriate tuples when discerning between front-ends to the RelationManager which did
+not care about the dropped attributes, and those functions which were internal/private to the
+RelationManager (all of which should be aware of the dropped attributes).  Within this, the most
+difficult part were those “bridging” functions, which passed the data from a client/front-end to an
+internal function.  A conversion must then be done between the two records.  For the internal to
+client transformation, this was simply the projection of a record which we had implemented with
+scan(), so we can create a wrapper around this for convenience of naming.  Converting the other way
+was like the opposite of projection.  This was done by “zipping” the client and internal
+recordDescriptors and building the internal record as we go.  On dropped attributes, we set the null
+flag, while on existing attributes, we memcpy the data from client to the internal.  The main
+problem we ran into was that nearly every method calls getAttributes or scan, two “bridging”
+functions, which made it incredibly hard to debug.  A bug somewhere in this new logic would break
+almost everything.  It would have been easier to design in from the beginning.
+

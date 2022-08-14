@@ -1,0 +1,59 @@
+﻿1. Basic information Team number (e.g., 01) : 8
+#1 Student ID : 1499743
+#1 Student Name : Michael Farrill
+#2 Student ID : 1529397
+#2 Student Name : Allston Mickey
+#3 Student ID : 1592942
+#3 Student Name : Keith Heacock
+
+2. Catalog information about Index
+
+- Show what catalog information you store for an index. 
+
+We stored the table name, attribute name, and file name of the index in the Index catalog. Each
+entry of the catalog is a varchar of length 50, like the file name, table name, and column name
+entries in the tables table and columns table.
+
+3. Index Nested Loop Join
+
+- Describe how your Index Nested Loop Join works.
+
+The algorithm follows that of the textbook in that the table that necessarily has an index is the
+inner relation and the other is the outer. In our function, the inner relation (left input) is an
+iterator and the outer relation (right input) is an index scan. We do a search on the inner relation
+looking for anything that matches the tuple currently pointed to the outer relation iterator and if
+a search result occurs, we concatenate and return via the void * parameter. If no tuple in the inner
+relation matches the outer we advance the outer relation with getNextTuple() and repeat the above.
+This continues until the outer relation reaches EOF in which case an EOF code is returned.
+
+4. Implementation Detail
+
+- Have you added your own source file (.cc or .h)?
+
+We used the provided codebase source files in each of the modules (e.g., qe.cc and qe.h), it was not
+necessary in our implementation to add additional source files.
+
+- Have you implemented any optional features? Then, describe them here.
+
+We did not implement any optional features.
+
+- Other implementation details:
+
+In the relation manager, we updated createCatalog() to add table entries for indexes in the catalog.
+We updated deleteCatalog() to delete the indexes table, and updated deleteTable() to delete indexes
+from a table. We added createIndexDescriptor()  to create an index record descriptor, and
+prepareIndexesRecordData() to prepare record data for entry. 
+
+In the Query Engine, Filter() accepts an iterator and a select condition as input and also makes use
+of helper functions getNextTuple() and getAttributes() . Project() accepts an iterator and valid
+attribute names as input and also uses its own getNextTuple() and getAttributes() helper functions.
+Project() is coded in qe.h file, being a relatively simple function. 
+
+5. Other (optional)
+
+- Freely use this section to tell us about things that are related to the project 4, but not related
+  to the other sections (optional)
+
+We utilized custom test files dealing with edge cases which weren’t necessarily covered in the
+provided tests, as well as simple test files for testing basic functionality such as creating and
+destroying tables - these were not part of the submission. 

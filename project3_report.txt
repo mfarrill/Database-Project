@@ -1,0 +1,44 @@
+1. Basic information
+Team number (e.g., 01) : 8
+#1 Student ID : 1499743
+1. Basic information
+Team number (e.g., 01) : 8
+#1 Student ID : 1499743
+#1 Student Name : Michael Farrill
+#2 Student ID : 1529397
+#2 Student Name : Allston Mickey
+#3 Student ID : 1592942
+#3 Student Name : Keith Heacock
+
+2. Meta-data page in an index file
+- Show your meta-data page of an index design if you have any.
+
+The meta-data is stored on each page of the index and varies depending on if the page is a leaf page or a non leaf page. Both types contain information on whether the page is a leaf node or intenal node, the number of entries on the page, and the page’s free space offset. The meta-data containing the current root page is stored in a separate file with the file extension ‘.root’.
+
+3. Index Entry Format
+- Show your index entry design (structure).
+
+Index entries consist of a key and record ID - not the records themselves.  Keys may be of type INT, REAL, or VARCHAR. Their length is either 4bytes, 4bytes, or 4bytes + 1byte per character respectively. 
+
+4. Page Format
+- Show your internal-page (non-leaf node) design.
+
+Non-leaf nodes contain a header with meta-data stating the page is a non-leaf page, the number of entries per page, and the free space offest. Each page is 4096bytes in size leaving 4087 bytes for tree indexes - keys. With each index, there is a pointer to its right child.
+
+- Show your leaf-page (leaf node) design.
+
+Leaf nodes contain a header with meta-data stating the page is a leaf page, the number of entries per page, the freespace offset, the node’s left sibling, and the node’s right sibling. Each page contains 4079bytes for key values. 
+
+5. Implementation Detail
+
+- Have you implemented non-lazy deletion? Choose Yes or No: Also provide implementation details if yes.
+
+No, we have implemented lazy deletion.  We have code written for some of non-lazy deletion but it is not currently in use.  Please see redistributeEntries() and deleteEntry_leaf() functions.
+
+- Other implementation details:
+
+Since the size of keys and thus the size of index entries are variable, this makes the degree of our B+ tree variable as well. It’s common for B+ trees to have a fixed degree d which is ½ of the capacity of the nodes (or ½ the size of the free space per page, if we were to implement it here) - thus the full capacity of a node is approximately twice the degree.   
+
+6. Other (optional)
+- Freely use this section to tell us about things that are related to the project 3, but not related to the other sections (optional)
+
